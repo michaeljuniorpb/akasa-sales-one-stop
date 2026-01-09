@@ -1,0 +1,22 @@
+
+{
+  "short_name": "Akasa Sales",
+  "name": "Akasa Sales One-Stop Tool",
+  "icons": [
+    {
+      "src": "https://lh3.googleusercontent.com/d/1-KjUGZ4rkCwLT_AZegZpSzbcR-V8_bLC",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://lh3.googleusercontent.com/d/1-KjUGZ4rkCwLT_AZegZpSzbcR-V8_bLC",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#4f46e5",
+  "background_color": "#f8fafc"
+}

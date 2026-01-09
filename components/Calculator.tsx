@@ -12,13 +12,16 @@ const Calculator: React.FC = () => {
   const [dpNominal, setDpNominal] = useState<number>(0);
   const [dpPersen, setDpPersen] = useState<number>(0);
   const [utj, setUtj] = useState<number>(0);
-  const [bungaBank, setBungaBank] = useState<number>(3.75); // Contoh desimal
+  const [bungaBank, setBungaBank] = useState<number>(3.75);
   const [tenorTahun, setTenorTahun] = useState<number>(10);
   const [isOtherTenor, setIsOtherTenor] = useState(false);
   const [customTenor, setCustomTenor] = useState<number>(1);
   const [clientName, setClientName] = useState('');
   
   const [result, setResult] = useState<SimulationResult | null>(null);
+  // State tambahan untuk perbandingan tenor cepat
+  const [comparison, setComparison] = useState<{ [key: number]: number }>({});
+  
   const isUpdatingRef = useRef(false);
 
   const hargaNett = Math.max(0, hargaPL - diskonNominal);
@@ -93,29 +96,35 @@ const Calculator: React.FC = () => {
     }
   };
 
+  // Helper fungsi hitung cicilan tunggal
+  const calculateSingle = (p: number, rate: number, years: number) => {
+    const months = years * 12;
+    if (months <= 0) return 0;
+    if (rate <= 0) return p / months;
+    const monthlyRate = (rate / 100) / 12;
+    return p * monthlyRate * Math.pow(1 + monthlyRate, months) / (Math.pow(1 + monthlyRate, months) - 1);
+  };
+
   const handleCalculate = () => {
     if (hargaPL <= 0) { alert("Masukkan Harga PL."); return; }
     const tTahun = isOtherTenor ? customTenor : tenorTahun;
-    const tBulan = tTahun * 12;
     
-    // Logika Perhitungan Anuitas (Mendukung bunga desimal)
-    let monthlyInstallment = 0;
-    if (tBulan > 0) {
-      if (bungaBank > 0) {
-        const monthlyRate = (bungaBank / 100) / 12;
-        monthlyInstallment = plafond * monthlyRate * Math.pow(1 + monthlyRate, tBulan) / (Math.pow(1 + monthlyRate, tBulan) - 1);
-      } else {
-        monthlyInstallment = plafond / tBulan;
-      }
-    }
+    const monthlyInstallment = calculateSingle(plafond, bungaBank, tTahun);
 
     setResult({
       hargaPL, diskonPersen, diskonNominal, hargaNett,
       dpNominal, dpPercent: dpPersen, utj, sisaDP,
       bungaBank, plafond, tenorTahun: tTahun,
-      tenorBulan: tBulan, monthlyInstallment, 
-      totalPayment: (monthlyInstallment * tBulan) + dpNominal
+      tenorBulan: tTahun * 12, monthlyInstallment, 
+      totalPayment: (monthlyInstallment * (tTahun * 12)) + dpNominal
     });
+
+    // Hitung perbandingan untuk 10, 15, 20
+    const compData: { [key: number]: number } = {};
+    [10, 15, 20].forEach(t => {
+      compData[t] = calculateSingle(plafond, bungaBank, t);
+    });
+    setComparison(compData);
 
     if (window.innerWidth < 768) {
       document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -135,9 +144,9 @@ const Calculator: React.FC = () => {
     alert("Berhasil disimpan ke Riwayat!");
   };
 
-  const copyToClipboard = () => {
-    if (!result) return;
-    const text = `
+  const getSummaryText = () => {
+    if (!result) return "";
+    let text = `
 *Akasa Pure Living - Simulasi Properti*
 Klien: ${clientName || '-'}
 ---------------------------------
@@ -149,22 +158,40 @@ PEMBAYARAN AWAL:
 DP Total: ${result.dpPercent!.toFixed(2).replace('.', ',')}% (${formatRupiah(result.dpNominal)})
 Booking Fee (UTJ): ${formatRupiah(result.utj!)}
 *Sisa DP Dibayar: ${formatRupiah(result.sisaDP!)}*
-(UTJ mengurangi nilai DP yang dibayar)
 
 KPR:
 Plafond: ${formatRupiah(result.plafond!)}
 Bunga: ${result.bungaBank?.toString().replace('.', ',')}% p.a (Anuitas)
-Tenor: ${result.tenorTahun} Tahun
+Tenor Terpilih: ${result.tenorTahun} Tahun
 ---------------------------------
-ESTIMASI CICILAN:
+ESTIMASI CICILAN (${result.tenorTahun} thn):
 *${formatRupiah(result.monthlyInstallment)} / bln*
+
+PERBANDINGAN TENOR LAIN:
+10 Thn: ${formatRupiah(comparison[10] || 0)}
+15 Thn: ${formatRupiah(comparison[15] || 0)}
+20 Thn: ${formatRupiah(comparison[20] || 0)}
 ---------------------------------
     `.trim();
-    navigator.clipboard.writeText(text).then(() => alert("Berhasil disalin!"));
+    return text;
+  };
+
+  const copyToClipboard = () => {
+    const text = getSummaryText();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => alert("Teks simulasi berhasil disalin!"));
+  };
+
+  const shareWhatsApp = () => {
+    const text = getSummaryText();
+    if (!text) return;
+    const encodedText = encodeURIComponent(text);
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* Input Section */}
       <div className="lg:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
           <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
@@ -191,10 +218,6 @@ ESTIMASI CICILAN:
               <NumberInput label="Diskon (%)" value={diskonPersen} onChange={handleDiskonPersenChange} suffix="%" allowFloat />
               <NumberInput label="Diskon (Rp)" value={diskonNominal} onChange={handleDiskonNominalChange} prefix="Rp" />
             </div>
-            <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                <span className="text-xs font-bold text-slate-500">Harga Nett</span>
-                <span className="text-sm font-black text-indigo-600">{formatRupiah(hargaNett)}</span>
-            </div>
           </div>
 
           <div className="p-4 bg-indigo-50/30 rounded-2xl space-y-4 border border-indigo-100/30">
@@ -204,21 +227,11 @@ ESTIMASI CICILAN:
               <NumberInput label="DP (Rp)" value={dpNominal} onChange={handleDpNominalChange} prefix="Rp" />
             </div>
             <NumberInput label="UTJ (Booking Fee)" value={utj} onChange={setUtj} prefix="Rp" />
-            
-            <div className="p-3 bg-white rounded-xl border border-indigo-100 flex justify-between items-center">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Sisa DP Dibayar</p>
-                <p className="text-sm font-black text-slate-800">{formatRupiah(sisaDP)}</p>
-              </div>
-              <div className="text-[9px] text-indigo-500 font-medium text-right max-w-[120px]">
-                *UTJ otomatis mengurangi DP yang dibayar
-              </div>
-            </div>
           </div>
 
           <div className="p-4 bg-emerald-50/30 rounded-2xl space-y-4 border border-emerald-100/30">
             <h4 className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Parameter Bank</h4>
-            <NumberInput label="Suku Bunga (% p.a)" value={bungaBank} onChange={setBungaBank} suffix="%" allowFloat placeholder="Contoh: 3,75" />
+            <NumberInput label="Suku Bunga (% p.a)" value={bungaBank} onChange={setBungaBank} suffix="%" allowFloat placeholder="3,75" />
             
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-slate-700">Tenor KPR (Tahun)</label>
@@ -226,17 +239,26 @@ ESTIMASI CICILAN:
                 {TENOR_YEARS_OPTIONS.map(opt => (
                   <button
                     key={opt}
+                    type="button"
                     onClick={() => { setTenorTahun(opt); setIsOtherTenor(false); }}
                     className={`py-2 rounded-xl text-sm font-bold border transition-all ${!isOtherTenor && tenorTahun === opt ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200'}`}
                   >
                     {opt} Thn
                   </button>
                 ))}
-                <button onClick={() => setIsOtherTenor(true)} className={`py-2 rounded-xl text-sm font-bold border transition-all ${isOtherTenor ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200'}`}>Lainnya</button>
+                <button 
+                  type="button"
+                  onClick={() => setIsOtherTenor(true)} 
+                  className={`py-2 rounded-xl text-sm font-bold border transition-all ${isOtherTenor ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200'}`}
+                >
+                  Lainnya
+                </button>
               </div>
+              
+              {/* FIXED: Conditional rendering for manual input */}
               {isOtherTenor && (
-                <div className="mt-2">
-                   <NumberInput label="Input Tahun" value={customTenor} onChange={setCustomTenor} suffix="Thn" />
+                <div className="mt-3 p-3 bg-white border border-indigo-100 rounded-xl animate-in fade-in slide-in-from-top-1">
+                   <NumberInput label="Masukkan Tahun (Tenor Manual)" value={customTenor} onChange={setCustomTenor} suffix="Thn" />
                 </div>
               )}
             </div>
@@ -248,14 +270,31 @@ ESTIMASI CICILAN:
         </div>
       </div>
 
+      {/* Result Section */}
       <div id="result-section" className="lg:col-span-7 space-y-6">
         {result ? (
           <>
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
               <div className="text-center mb-8">
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 block mb-2">Estimasi Angsuran KPR</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 block mb-2">Estimasi Angsuran ({result.tenorTahun} Thn)</span>
                 <h2 className="text-5xl font-black text-slate-900">{formatRupiah(result.monthlyInstallment)}</h2>
-                <p className="text-slate-400 font-medium text-sm mt-2">Selama {result.tenorTahun} Tahun @ {result.bungaBank?.toString().replace('.', ',')}%</p>
+                <p className="text-slate-400 font-medium text-sm mt-2">Bunga @ {result.bungaBank?.toString().replace('.', ',')}% p.a</p>
+              </div>
+
+              {/* Perbandingan Tenor Cepat */}
+              <div className="grid grid-cols-3 gap-3 mb-8">
+                {[10, 15, 20].map(t => {
+                  const isActive = result.tenorTahun === t;
+                  return (
+                    <div 
+                      key={t}
+                      className={`p-3 rounded-2xl border transition-all ${isActive ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-600'}`}
+                    >
+                      <p className={`text-[8px] font-black uppercase tracking-widest mb-1 ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>{t} Tahun</p>
+                      <p className={`text-[11px] font-bold ${isActive ? 'text-white' : 'text-slate-800'}`}>{formatRupiah(comparison[t] || 0)}</p>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-slate-100">
@@ -275,7 +314,7 @@ ESTIMASI CICILAN:
                     <span className="text-slate-700 font-bold">{formatRupiah(result.hargaNett!)}</span>
                  </div>
                  <div className="flex justify-between text-xs font-medium">
-                    <span className="text-slate-400">Uang Muka (DP {result.dpPercent?.toFixed(2).replace('.', ',')}%)</span>
+                    <span className="text-slate-400">DP Total ({result.dpPercent?.toFixed(2).replace('.', ',')}%)</span>
                     <span className="text-slate-700 font-bold">{formatRupiah(result.dpNominal)}</span>
                  </div>
                  <div className="flex justify-between text-xs font-medium border-b border-slate-100 pb-2">
@@ -289,15 +328,23 @@ ESTIMASI CICILAN:
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 mt-8">
-                <button onClick={saveToHistory} className="flex-1 bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-all flex items-center justify-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
+                <button 
+                  onClick={saveToHistory} 
+                  className="flex-1 bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-all flex items-center justify-center gap-2 text-xs"
+                >
                   Simpan Riwayat
                 </button>
-                <button onClick={copyToClipboard} className="flex-1 bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.246 2.248 3.484 5.232 3.484 8.412-.003 6.557-5.338 11.892-11.893 11.892-1.997-.001-3.951-.5-5.688-1.448l-6.309 1.656zm6.29-4.143c1.589.943 3.133 1.417 4.929 1.417 5.617 0 10.188-4.57 10.191-10.187.002-5.457-4.446-10.188-10.191-10.188-2.724 0-5.284 1.06-7.21 2.984s-2.984 4.486-2.984 7.21c0 1.838.483 3.421 1.468 4.938l-1.004 3.663 3.8-.999z"/></svg>
-                  WhatsApp Share
+                <button 
+                  onClick={copyToClipboard} 
+                  className="flex-1 bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl hover:bg-slate-300 transition-all flex items-center justify-center gap-2 text-xs"
+                >
+                  Salin Teks
+                </button>
+                <button 
+                  onClick={shareWhatsApp} 
+                  className="flex-1 bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 text-xs"
+                >
+                  WhatsApp
                 </button>
               </div>
             </div>
@@ -309,14 +356,14 @@ ESTIMASI CICILAN:
                     </svg>
                 </div>
                 <p className="text-[10px] text-amber-700 leading-relaxed font-medium italic">
-                    *Nilai cicilan adalah estimasi menggunakan suku bunga desimal yang Anda input. Suku bunga aktual mengikuti kebijakan Bank pada saat penandatanganan akad kredit.
+                    *Nilai cicilan adalah estimasi. Suku bunga aktual mengikuti kebijakan Bank saat akad.
                 </p>
             </div>
           </>
         ) : (
           <div className="bg-slate-100/50 border-2 border-dashed border-slate-200 rounded-3xl p-20 flex flex-col items-center text-center">
             <h4 className="font-bold text-slate-400">Hasil Muncul di Sini</h4>
-            <p className="text-xs text-slate-400 mt-2 italic">Pastikan UTJ telah diisi untuk melihat sisa kewajiban DP.</p>
+            <p className="text-xs text-slate-400 mt-2 italic">Tekan tombol Hitung Simulasi untuk melihat perbandingan tenor.</p>
           </div>
         )}
       </div>
