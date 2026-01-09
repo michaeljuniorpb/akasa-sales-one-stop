@@ -19,7 +19,6 @@ const Calculator: React.FC = () => {
   const [clientName, setClientName] = useState('');
   
   const [result, setResult] = useState<SimulationResult | null>(null);
-  // State tambahan untuk perbandingan tenor cepat
   const [comparison, setComparison] = useState<{ [key: number]: number }>({});
   
   const isUpdatingRef = useRef(false);
@@ -96,7 +95,6 @@ const Calculator: React.FC = () => {
     }
   };
 
-  // Helper fungsi hitung cicilan tunggal
   const calculateSingle = (p: number, rate: number, years: number) => {
     const months = years * 12;
     if (months <= 0) return 0;
@@ -119,7 +117,6 @@ const Calculator: React.FC = () => {
       totalPayment: (monthlyInstallment * (tTahun * 12)) + dpNominal
     });
 
-    // Hitung perbandingan untuk 10, 15, 20
     const compData: { [key: number]: number } = {};
     [10, 15, 20].forEach(t => {
       compData[t] = calculateSingle(plafond, bungaBank, t);
@@ -127,7 +124,8 @@ const Calculator: React.FC = () => {
     setComparison(compData);
 
     if (window.innerWidth < 768) {
-      document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth' });
+      const el = document.getElementById('result-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -146,7 +144,7 @@ const Calculator: React.FC = () => {
 
   const getSummaryText = () => {
     if (!result) return "";
-    let text = `
+    return `
 *Akasa Pure Living - Simulasi Properti*
 Klien: ${clientName || '-'}
 ---------------------------------
@@ -156,214 +154,184 @@ Harga Nett: ${formatRupiah(result.hargaNett!)}
 
 PEMBAYARAN AWAL:
 DP Total: ${result.dpPercent!.toFixed(2).replace('.', ',')}% (${formatRupiah(result.dpNominal)})
-Booking Fee (UTJ): ${formatRupiah(result.utj!)}
-*Sisa DP Dibayar: ${formatRupiah(result.sisaDP!)}*
+UTJ: ${formatRupiah(result.utj!)}
+*Sisa DP: ${formatRupiah(result.sisaDP!)}*
 
 KPR:
 Plafond: ${formatRupiah(result.plafond!)}
-Bunga: ${result.bungaBank?.toString().replace('.', ',')}% p.a (Anuitas)
-Tenor Terpilih: ${result.tenorTahun} Tahun
+Bunga: ${result.bungaBank?.toString().replace('.', ',')}% p.a
+Tenor: ${result.tenorTahun} Tahun
 ---------------------------------
-ESTIMASI CICILAN (${result.tenorTahun} thn):
+ESTIMASI CICILAN:
 *${formatRupiah(result.monthlyInstallment)} / bln*
 
-PERBANDINGAN TENOR LAIN:
+PERBANDINGAN TENOR:
 10 Thn: ${formatRupiah(comparison[10] || 0)}
 15 Thn: ${formatRupiah(comparison[15] || 0)}
 20 Thn: ${formatRupiah(comparison[20] || 0)}
 ---------------------------------
     `.trim();
-    return text;
   };
 
   const copyToClipboard = () => {
     const text = getSummaryText();
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => alert("Teks simulasi berhasil disalin!"));
+    navigator.clipboard.writeText(text).then(() => alert("Teks berhasil disalin!"));
   };
 
   const shareWhatsApp = () => {
     const text = getSummaryText();
     if (!text) return;
-    const encodedText = encodeURIComponent(text);
-    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Input Section */}
+      {/* Kolom Input */}
       <div className="lg:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
           <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
-          Input Data Unit
+          Data Simulasi
         </h3>
         
         <div className="space-y-5">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">Nama Klien / Unit</label>
+            <label className="text-sm font-medium text-slate-700">Nama Klien</label>
             <input 
               type="text" 
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              placeholder="Contoh: Bpk. Budi / Unit 12A"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              placeholder="Unit / Nama Klien"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
 
           <NumberInput label="Harga Price List" value={hargaPL} onChange={setHargaPL} prefix="Rp" />
           
-          <div className="p-4 bg-slate-50 rounded-2xl space-y-4 border border-slate-100">
-            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Potongan Harga</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <NumberInput label="Diskon (%)" value={diskonPersen} onChange={handleDiskonPersenChange} suffix="%" allowFloat />
-              <NumberInput label="Diskon (Rp)" value={diskonNominal} onChange={handleDiskonNominalChange} prefix="Rp" />
-            </div>
+          <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+            <NumberInput label="Diskon (%)" value={diskonPersen} onChange={handleDiskonPersenChange} suffix="%" allowFloat />
+            <NumberInput label="Diskon (Rp)" value={diskonNominal} onChange={handleDiskonNominalChange} prefix="Rp" />
           </div>
 
           <div className="p-4 bg-indigo-50/30 rounded-2xl space-y-4 border border-indigo-100/30">
-            <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Uang Muka & Booking</h4>
             <div className="grid grid-cols-2 gap-4">
               <NumberInput label="DP (%)" value={dpPersen} onChange={handleDpPersenChange} suffix="%" allowFloat />
               <NumberInput label="DP (Rp)" value={dpNominal} onChange={handleDpNominalChange} prefix="Rp" />
             </div>
-            <NumberInput label="UTJ (Booking Fee)" value={utj} onChange={setUtj} prefix="Rp" />
+            <NumberInput label="Booking Fee (UTJ)" value={utj} onChange={setUtj} prefix="Rp" />
           </div>
 
           <div className="p-4 bg-emerald-50/30 rounded-2xl space-y-4 border border-emerald-100/30">
-            <h4 className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Parameter Bank</h4>
-            <NumberInput label="Suku Bunga (% p.a)" value={bungaBank} onChange={setBungaBank} suffix="%" allowFloat placeholder="3,75" />
+            <NumberInput label="Bunga Bank (% p.a)" value={bungaBank} onChange={setBungaBank} suffix="%" allowFloat />
             
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700">Tenor KPR (Tahun)</label>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pilih Tenor (Tahun)</label>
               <div className="grid grid-cols-3 gap-2">
                 {TENOR_YEARS_OPTIONS.map(opt => (
                   <button
                     key={opt}
                     type="button"
                     onClick={() => { setTenorTahun(opt); setIsOtherTenor(false); }}
-                    className={`py-2 rounded-xl text-sm font-bold border transition-all ${!isOtherTenor && tenorTahun === opt ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200'}`}
+                    className={`py-3 rounded-xl text-xs font-black transition-all border ${!isOtherTenor && tenorTahun === opt ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-slate-600 border-slate-200'}`}
                   >
-                    {opt} Thn
+                    {opt} THN
                   </button>
                 ))}
                 <button 
                   type="button"
                   onClick={() => setIsOtherTenor(true)} 
-                  className={`py-2 rounded-xl text-sm font-bold border transition-all ${isOtherTenor ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-600 border-slate-200'}`}
+                  className={`py-3 rounded-xl text-xs font-black transition-all border ${isOtherTenor ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-slate-600 border-slate-200'}`}
                 >
-                  Lainnya
+                  LAINNYA
                 </button>
               </div>
               
-              {/* FIXED: Conditional rendering for manual input */}
+              {/* FIXED: Input Manual Tenor */}
               {isOtherTenor && (
-                <div className="mt-3 p-3 bg-white border border-indigo-100 rounded-xl animate-in fade-in slide-in-from-top-1">
-                   <NumberInput label="Masukkan Tahun (Tenor Manual)" value={customTenor} onChange={setCustomTenor} suffix="Thn" />
+                <div className="mt-4 p-4 bg-white border border-indigo-100 rounded-2xl animate-in zoom-in-95">
+                   <NumberInput label="Masukkan Tenor Manual" value={customTenor} onChange={setCustomTenor} suffix="Tahun" />
                 </div>
               )}
             </div>
           </div>
 
-          <button onClick={handleCalculate} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-100 active:scale-[0.98]">
-            Hitung Simulasi
+          <button onClick={handleCalculate} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl transition-all shadow-xl shadow-indigo-100 uppercase tracking-widest active:scale-[0.97]">
+            Lihat Hasil Simulasi
           </button>
         </div>
       </div>
 
-      {/* Result Section */}
+      {/* Kolom Hasil */}
       <div id="result-section" className="lg:col-span-7 space-y-6">
         {result ? (
           <>
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-              <div className="text-center mb-8">
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 block mb-2">Estimasi Angsuran ({result.tenorTahun} Thn)</span>
-                <h2 className="text-5xl font-black text-slate-900">{formatRupiah(result.monthlyInstallment)}</h2>
-                <p className="text-slate-400 font-medium text-sm mt-2">Bunga @ {result.bungaBank?.toString().replace('.', ',')}% p.a</p>
+              <div className="text-center mb-10">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 block mb-2">Cicilan Utama ({result.tenorTahun} Tahun)</span>
+                <h2 className="text-5xl font-black text-slate-900 leading-tight">{formatRupiah(result.monthlyInstallment)}</h2>
+                <div className="flex justify-center gap-4 mt-3">
+                   <span className="text-xs font-bold text-slate-400">Plafond: {formatRupiah(result.plafond!)}</span>
+                   <span className="text-xs font-bold text-slate-400">|</span>
+                   <span className="text-xs font-bold text-slate-400">Sisa DP: {formatRupiah(result.sisaDP!)}</span>
+                </div>
               </div>
 
-              {/* Perbandingan Tenor Cepat */}
+              {/* Perbandingan Tenor 10, 15, 20 */}
               <div className="grid grid-cols-3 gap-3 mb-8">
                 {[10, 15, 20].map(t => {
                   const isActive = result.tenorTahun === t;
                   return (
                     <div 
                       key={t}
-                      className={`p-3 rounded-2xl border transition-all ${isActive ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-600'}`}
+                      className={`relative p-4 rounded-2xl border transition-all duration-300 ${isActive ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl scale-105 z-10' : 'bg-slate-50 border-slate-100 text-slate-600 opacity-70'}`}
                     >
-                      <p className={`text-[8px] font-black uppercase tracking-widest mb-1 ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>{t} Tahun</p>
-                      <p className={`text-[11px] font-bold ${isActive ? 'text-white' : 'text-slate-800'}`}>{formatRupiah(comparison[t] || 0)}</p>
+                      {isActive && <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-900 text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm">TERPILIH</div>}
+                      <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isActive ? 'text-indigo-100' : 'text-slate-400'}`}>{t} Tahun</p>
+                      <p className={`text-xs font-black ${isActive ? 'text-white' : 'text-slate-800'}`}>{formatRupiah(comparison[t] || 0)}</p>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-slate-100">
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Plafond Pinjaman</p>
-                    <p className="text-lg font-black text-emerald-600">{formatRupiah(result.plafond!)}</p>
-                </div>
-                <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                    <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Sisa DP yang Dibayar</p>
-                    <p className="text-lg font-black text-indigo-600">{formatRupiah(result.sisaDP!)}</p>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-3 bg-slate-50/30 p-4 rounded-2xl">
-                 <div className="flex justify-between text-xs font-medium">
-                    <span className="text-slate-400">Harga Nett Unit</span>
-                    <span className="text-slate-700 font-bold">{formatRupiah(result.hargaNett!)}</span>
-                 </div>
-                 <div className="flex justify-between text-xs font-medium">
-                    <span className="text-slate-400">DP Total ({result.dpPercent?.toFixed(2).replace('.', ',')}%)</span>
-                    <span className="text-slate-700 font-bold">{formatRupiah(result.dpNominal)}</span>
-                 </div>
-                 <div className="flex justify-between text-xs font-medium border-b border-slate-100 pb-2">
-                    <span className="text-slate-400">Booking Fee (UTJ)</span>
-                    <span className="text-red-500 font-bold">-{formatRupiah(result.utj!)}</span>
-                 </div>
-                 <div className="flex justify-between text-xs font-black pt-1">
-                    <span className="text-slate-600 uppercase">Sisa Kewajiban DP</span>
-                    <span className="text-indigo-600">{formatRupiah(result.sisaDP!)}</span>
-                 </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 mt-8">
+              {/* Action Buttons: 3 Tombol Sesuai Request */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button 
                   onClick={saveToHistory} 
-                  className="flex-1 bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-all flex items-center justify-center gap-2 text-xs"
+                  className="bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-all flex items-center justify-center gap-2 text-[11px] uppercase tracking-wider"
                 >
-                  Simpan Riwayat
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                  Simpan
                 </button>
                 <button 
                   onClick={copyToClipboard} 
-                  className="flex-1 bg-slate-200 text-slate-700 font-bold py-3.5 rounded-xl hover:bg-slate-300 transition-all flex items-center justify-center gap-2 text-xs"
+                  className="bg-slate-100 text-slate-700 font-bold py-3.5 rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-2 text-[11px] uppercase tracking-wider"
                 >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" /></svg>
                   Salin Teks
                 </button>
                 <button 
                   onClick={shareWhatsApp} 
-                  className="flex-1 bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 text-xs"
+                  className="bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 text-[11px] uppercase tracking-wider"
                 >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.246 2.248 3.484 5.232 3.484 8.412-.003 6.557-5.338 11.892-11.893 11.892-1.997-.001-3.951-.5-5.688-1.448l-6.309 1.656zm6.29-4.143c1.589.943 3.133 1.417 4.929 1.417 5.617 0 10.188-4.57 10.191-10.187.002-5.457-4.446-10.188-10.191-10.188-2.724 0-5.284 1.06-7.21 2.984s-2.984 4.486-2.984 7.21c0 1.838.483 3.421 1.468 4.938l-1.004 3.663 3.8-.999z"/></svg>
                   WhatsApp
                 </button>
               </div>
             </div>
 
-            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3 shadow-sm shadow-amber-50">
-                <div className="text-amber-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                        <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836c-.149.598.019 1.225.44 1.645a2.25 2.25 0 001.64 1.139c.647.054 1.291-.252 1.645-.706a.75.75 0 111.168.94c-.66.82-1.84 1.34-2.95 1.246a3.75 3.75 0 01-2.733-1.899 3.75 3.75 0 01-.734-2.742l.71-2.836a.75.75 0 00-.147-.548.75.75 0 00-.547-.146.75.75 0 01-.84-1.042zM12 7.5a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25z" clipRule="evenodd" />
-                    </svg>
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3">
+                <div className="text-amber-500 pt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836c-.149.598.019 1.225.44 1.645a2.25 2.25 0 001.64 1.139c.647.054 1.291-.252 1.645-.706a.75.75 0 111.168.94c-.66.82-1.84 1.34-2.95 1.246a3.75 3.75 0 01-2.733-1.899 3.75 3.75 0 01-.734-2.742l.71-2.836a.75.75 0 00-.147-.548.75.75 0 00-.547-.146.75.75 0 01-.84-1.042zM12 7.5a1.125 1.125 0 100 2.25 1.125 1.125 0 000-2.25z" clipRule="evenodd" /></svg>
                 </div>
-                <p className="text-[10px] text-amber-700 leading-relaxed font-medium italic">
-                    *Nilai cicilan adalah estimasi. Suku bunga aktual mengikuti kebijakan Bank saat akad.
+                <p className="text-[10px] text-amber-700 leading-relaxed font-bold italic">
+                    *Estimasi cicilan di atas menggunakan bunga anuitas. Suku bunga dan plafon akhir tunduk pada hasil analisa kredit Bank.
                 </p>
             </div>
           </>
         ) : (
-          <div className="bg-slate-100/50 border-2 border-dashed border-slate-200 rounded-3xl p-20 flex flex-col items-center text-center">
-            <h4 className="font-bold text-slate-400">Hasil Muncul di Sini</h4>
-            <p className="text-xs text-slate-400 mt-2 italic">Tekan tombol Hitung Simulasi untuk melihat perbandingan tenor.</p>
+          <div className="bg-slate-100/50 border-2 border-dashed border-slate-200 rounded-[2.5rem] p-20 flex flex-col items-center text-center">
+            <h4 className="font-bold text-slate-400">Belum Ada Hasil</h4>
+            <p className="text-xs text-slate-400 mt-2 italic">Isi data unit di samping lalu tekan tombol hitung.</p>
           </div>
         )}
       </div>
